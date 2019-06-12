@@ -76,8 +76,8 @@ static void end_sr_on_vad(struct speech_rec *sr)
 	int errcode;
 	const char *rslt;
 
-	if (sr->aud_src == SR_MIC)
-		stop_record(sr->recorder);	
+	/*if (sr->aud_src == SR_MIC)
+		stop_record(sr->recorder);*/
 
 	while(sr->rec_stat != MSP_REC_STATUS_COMPLETE ){
 		rslt = QISRGetResult(sr->session_id, &sr->rec_stat, 0, &errcode);
@@ -94,6 +94,8 @@ static void end_sr_on_vad(struct speech_rec *sr)
 		sr->session_id = NULL;
 	}
 	sr->state = SR_STATE_INIT;
+
+	sr_start_listening(sr);
 }
 
 /* the record call back */

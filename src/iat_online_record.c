@@ -7,17 +7,19 @@
 #include "msp_errors.h"
 #include "speech_recognizer.h"
 
+#define DELAY_TIME	30
+
 #define FRAME_LEN	640 
 #define	BUFFER_SIZE	4096
 
 /* Upload User words */
 static int upload_userwords()
 {
-	char*	userwords = NULL;
-	size_t	len	  = 0;
-	size_t	read_len  = 0;
-	FILE*	fp	  = NULL;
-	int	ret	  = -1;
+	char	*userwords = NULL;
+	size_t	len        = 0;
+	size_t	read_len   = 0;
+	FILE	*fp        = NULL;
+	int  	ret        = -1;
 
 	fp = fopen("userwords.txt", "rb");
 	if (NULL == fp)										
@@ -116,6 +118,106 @@ void on_speech_end(int reason)
 		printf("\nRecognizer error %d\n", reason);
 }
 
+/* demo send audio data from a file */
+static void demo_file(const char* audio_file, const char* session_begin_params)
+{
+	int	errcode = 0;
+	FILE*	f_pcm = NULL;
+	char*	p_pcm = NULL;
+	unsigned long	pcm_count = 0;
+	unsigned long	pcm_size = 0;
+	unsigned long	read_size = 0;
+	struct speech_rec iat;
+	struct speech_rec_notifier recnotifier = {
+		on_result,
+		on_speech_begin,
+		on_speech_end
+	};
+
+	if (NULL == audio_file)
+		goto iat_exit;
+
+	f_pcm = fopen(audio_file, "rb");
+	if (NULL == f_pcm)
+	{
+		printf("\nopen [%s] failed! \n", audio_file);
+		goto iat_exit;
+	}
+
+	fseek(f_pcm, 0, SEEK_END);
+	pcm_size = ftell(f_pcm);
+	fseek(f_pcm, 0, SEEK_SET);
+
+	p_pcm = (char *)malloc(pcm_size);
+	if (NULL == p_pcm)
+	{
+		printf("\nout of memory! \n");
+		goto iat_exit;
+	}
+
+	read_size = fread((void *)p_pcm, 1, pcm_size, f_pcm);
+	if (read_size != pcm_size)
+	{
+		printf("\nread [%s] error!\n", audio_file);
+		goto iat_exit;
+	}
+
+	errcode = sr_init(&iat, session_begin_params, SR_USER, &recnotifier);
+	if (errcode) {
+		printf("speech recognizer init failed : %d\n", errcode);
+		goto iat_exit;
+	}
+
+	errcode = sr_start_listening(&iat);
+	if (errcode) {
+		printf("\nsr_start_listening failed! error code:%d\n", errcode);
+		goto iat_exit;
+	}
+
+	while (1)
+	{
+		unsigned int len = 10 * FRAME_LEN; /* 200ms audio */
+		int ret = 0;
+
+		if (pcm_size < 2 * len)
+			len = pcm_size;
+		if (len <= 0)
+			break;
+
+		ret = sr_write_audio_data(&iat, &p_pcm[pcm_count], len);
+
+		if (0 != ret)
+		{
+			printf("\nwrite audio data failed! error code:%d\n", ret);
+			goto iat_exit;
+		}
+
+		pcm_count += (long)len;
+		pcm_size -= (long)len;		
+	}
+
+	errcode = sr_stop_listening(&iat);
+	if (errcode) {
+		printf("\nsr_stop_listening failed! error code:%d \n", errcode);
+		goto iat_exit;
+	}
+
+iat_exit:
+	if (NULL != f_pcm)
+	{
+		fclose(f_pcm);
+		f_pcm = NULL;
+	}
+	if (NULL != p_pcm)
+	{
+		free(p_pcm);
+		p_pcm = NULL;
+	}
+
+	sr_stop_listening(&iat);
+	sr_uninit(&iat);
+}
+
 /* demo recognize the audio from microphone */
 static void demo_mic(const char* session_begin_params)
 {
@@ -139,8 +241,8 @@ static void demo_mic(const char* session_begin_params)
 	if (errcode) {
 		printf("start listen failed %d\n", errcode);
 	}
-	/* demo 15 seconds recording */
-	while(i++ < 15)
+
+	while(i++ < DELAY_TIME)
 		sleep(1);
 	errcode = sr_stop_listening(&iat);
 	if (errcode) {
@@ -158,7 +260,6 @@ static void demo_mic(const char* session_begin_params)
 int main(int argc, char* argv[])
 {
 	int ret = MSP_SUCCESS;
-	int upload_on =	0; /* whether upload the user word */
 	/* login params, please do keep the appid correct */
 	const char* login_params = "appid = 5cdd1c7d, work_dir = .";
 
@@ -179,23 +280,17 @@ int main(int argc, char* argv[])
 		goto exit; // login fail, exit the program
 	}
 
-	//printf("Want to upload the user words ? \n0: No.\n1: Yes\n");
-	//scanf("%d", &upload_on);
-	if (upload_on)
-	{
-		printf("Uploading the user words ...\n");
-		ret = upload_userwords();
-		if (MSP_SUCCESS != ret)
-			goto exit;	
-		printf("Uploaded successfully\n");
+	if(argc > 1) {
+		printf("Demo recgonizing the speech from a recorded audio file\n");
+		demo_file(argv[1], session_begin_params); 
+	} else {
+		printf("Demo recognizing the speech from microphone\n");
+		printf("Speak in %d seconds\n", DELAY_TIME);
+
+		demo_mic(session_begin_params);
+
+		printf("%d sec passed\n", DELAY_TIME);
 	}
-
-	printf("Demo recognizing the speech from microphone\n");
-	printf("Speak in 15 seconds\n");
-
-	demo_mic(session_begin_params);
-
-	printf("15 sec passed\n");
 exit:
 	MSPLogout(); // Logout...
 
