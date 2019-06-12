@@ -1,7 +1,3 @@
-/*
-* 语音听写(iFly Auto Transform)技术能够实时地将语音转换成对应的文字。
-*/
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,11 +13,11 @@
 /* Upload User words */
 static int upload_userwords()
 {
-	char*			userwords	=	NULL;
-	size_t			len			=	0;
-	size_t			read_len	=	0;
-	FILE*			fp			=	NULL;
-	int				ret			=	-1;
+	char*	userwords = NULL;
+	size_t	len	  = 0;
+	size_t	read_len  = 0;
+	FILE*	fp	  = NULL;
+	int	ret	  = -1;
 
 	fp = fopen("userwords.txt", "rb");
 	if (NULL == fp)										
@@ -120,106 +116,6 @@ void on_speech_end(int reason)
 		printf("\nRecognizer error %d\n", reason);
 }
 
-/* demo send audio data from a file */
-static void demo_file(const char* audio_file, const char* session_begin_params)
-{
-	int	errcode = 0;
-	FILE*	f_pcm = NULL;
-	char*	p_pcm = NULL;
-	unsigned long	pcm_count = 0;
-	unsigned long	pcm_size = 0;
-	unsigned long	read_size = 0;
-	struct speech_rec iat;
-	struct speech_rec_notifier recnotifier = {
-		on_result,
-		on_speech_begin,
-		on_speech_end
-	};
-
-	if (NULL == audio_file)
-		goto iat_exit;
-
-	f_pcm = fopen(audio_file, "rb");
-	if (NULL == f_pcm)
-	{
-		printf("\nopen [%s] failed! \n", audio_file);
-		goto iat_exit;
-	}
-
-	fseek(f_pcm, 0, SEEK_END);
-	pcm_size = ftell(f_pcm);
-	fseek(f_pcm, 0, SEEK_SET);
-
-	p_pcm = (char *)malloc(pcm_size);
-	if (NULL == p_pcm)
-	{
-		printf("\nout of memory! \n");
-		goto iat_exit;
-	}
-
-	read_size = fread((void *)p_pcm, 1, pcm_size, f_pcm);
-	if (read_size != pcm_size)
-	{
-		printf("\nread [%s] error!\n", audio_file);
-		goto iat_exit;
-	}
-
-	errcode = sr_init(&iat, session_begin_params, SR_USER, &recnotifier);
-	if (errcode) {
-		printf("speech recognizer init failed : %d\n", errcode);
-		goto iat_exit;
-	}
-
-	errcode = sr_start_listening(&iat);
-	if (errcode) {
-		printf("\nsr_start_listening failed! error code:%d\n", errcode);
-		goto iat_exit;
-	}
-
-	while (1)
-	{
-		unsigned int len = 10 * FRAME_LEN; /* 200ms audio */
-		int ret = 0;
-
-		if (pcm_size < 2 * len)
-			len = pcm_size;
-		if (len <= 0)
-			break;
-
-		ret = sr_write_audio_data(&iat, &p_pcm[pcm_count], len);
-
-		if (0 != ret)
-		{
-			printf("\nwrite audio data failed! error code:%d\n", ret);
-			goto iat_exit;
-		}
-
-		pcm_count += (long)len;
-		pcm_size -= (long)len;		
-	}
-
-	errcode = sr_stop_listening(&iat);
-	if (errcode) {
-		printf("\nsr_stop_listening failed! error code:%d \n", errcode);
-		goto iat_exit;
-	}
-
-iat_exit:
-	if (NULL != f_pcm)
-	{
-		fclose(f_pcm);
-		f_pcm = NULL;
-	}
-	if (NULL != p_pcm)
-	{
-		free(p_pcm);
-		p_pcm = NULL;
-	}
-
-	sr_stop_listening(&iat);
-	sr_uninit(&iat);
-}
-
 /* demo recognize the audio from microphone */
 static void demo_mic(const char* session_begin_params)
 {
@@ -262,10 +158,9 @@ static void demo_mic(const char* session_begin_params)
 int main(int argc, char* argv[])
 {
 	int ret = MSP_SUCCESS;
-	int upload_on =	1; /* whether upload the user word */
+	int upload_on =	0; /* whether upload the user word */
 	/* login params, please do keep the appid correct */
 	const char* login_params = "appid = 5cdd1c7d, work_dir = .";
-	int aud_src = 0; /* from mic or file */
 
 	/*
 	* See "iFlytek MSC Reference Manual"
@@ -284,8 +179,8 @@ int main(int argc, char* argv[])
 		goto exit; // login fail, exit the program
 	}
 
-	printf("Want to upload the user words ? \n0: No.\n1: Yes\n");
-	scanf("%d", &upload_on);
+	//printf("Want to upload the user words ? \n0: No.\n1: Yes\n");
+	//scanf("%d", &upload_on);
 	if (upload_on)
 	{
 		printf("Uploading the user words ...\n");
@@ -295,20 +190,12 @@ int main(int argc, char* argv[])
 		printf("Uploaded successfully\n");
 	}
 
-	printf("Where the audio comes from?\n"
-			"0: From a audio file.\n1: From microphone.\n");
-	scanf("%d", &aud_src);
-	if(aud_src != 0) {
-		printf("Demo recognizing the speech from microphone\n");
-		printf("Speak in 15 seconds\n");
+	printf("Demo recognizing the speech from microphone\n");
+	printf("Speak in 15 seconds\n");
 
-		demo_mic(session_begin_params);
+	demo_mic(session_begin_params);
 
-		printf("15 sec passed\n");
-	} else {
-		printf("Demo recgonizing the speech from a recorded audio file\n");
-		demo_file("wav/iflytek02.wav", session_begin_params); 
-	}
+	printf("15 sec passed\n");
 exit:
 	MSPLogout(); // Logout...
 

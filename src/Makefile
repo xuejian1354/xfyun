@@ -1,17 +1,24 @@
 #common makefile header
 
-DIR_INC = ../../include
-DIR_BIN = ../../bin
-DIR_LIB = ../../libs
+DIR_INC = ../include
+DIR_BIN = ../bin
+DIR_LIB = ../libs
 
-TARGET	= iat_online_record_sample
+TARGET	= myiat
 BIN_TARGET = $(DIR_BIN)/$(TARGET)
 
 CROSS_COMPILE = 
 CFLAGS = -g -Wall -I$(DIR_INC)
 
-#可根据实际需要修改，选择所需平台SDK，默认为x64或x86平台。
-ifdef LINUX64
+$(shell mkdir -p ../bin)
+ifndef (LINUX64)
+LINUX64 :=0
+ifeq ($(shell uname -m),x86_64)
+LINUX64 :=1
+endif
+endif
+
+ifeq ($(LINUX64),1)
 LDFLAGS := -L$(DIR_LIB)/x64
 else
 LDFLAGS := -L$(DIR_LIB)/x86 
@@ -27,8 +34,6 @@ $(BIN_TARGET) : $(OBJECTS)
 %.o : %.c
 	$(CROSS_COMPILE)gcc -c $(CFLAGS) $< -o $@
 clean:
-	@rm -f *.o $(BIN_TARGET)
+	rm -f *.o $(BIN_TARGET)
 
-.PHONY:clean
-
-#common makefile foot
+.PHONY: clean
